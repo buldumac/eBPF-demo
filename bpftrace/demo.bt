@@ -1,0 +1,81 @@
+#!/usr/bin/env bpftrace
+
+/*
+Usage:
+  sudo bpftrace -v COMM=<process_name> demo2.bt
+  Use COMM="" to capture all processes
+*/
+
+// ----------- connect() -----------
+tracepoint:syscalls:sys_enter_connect
+/ comm == str($1) /
+{
+    printf("pid=%d uid=%d comm=%s EVENT=connect fd=%d uservaddr=0x%lx addrlen=%d\n",
+           pid, uid, comm,
+           args->fd,
+           (uint64)args->uservaddr,
+           args->addrlen);
+}
+
+// ----------- openat() -----------
+tracepoint:syscalls:sys_enter_openat
+/ comm == str($1) /
+{
+    printf("pid=%d uid=%d comm=%s EVENT=open path=%s\n",
+           pid, uid, comm,
+           str(args->filename));
+}
+
+// ----------- write() -----------
+tracepoint:syscalls:sys_enter_write
+/ comm == str($1) /
+{
+    printf("pid=%d uid=%d comm=%s EVENT=write fd=%d count=%llu\n",
+           pid, uid, comm,
+           args->fd, (uint64)args->count);
+}
+
+// ----------- renameat() -----------
+tracepoint:syscalls:sys_enter_renameat
+/ comm == str($1) /
+{
+    printf("pid=%d uid=%d comm=%s EVENT=renameat new=%s\n",
+           pid, uid, comm,
+           str(args->newname));
+}
+
+// ----------- rename() -----------
+tracepoint:syscalls:sys_enter_rename
+/ comm == str($1) /
+{
+    printf("pid=%d uid=%d comm=%s EVENT=rename new=%s\n",
+           pid, uid, comm,
+           str(args->newname));
+}
+
+// ----------- mmap() -----------
+tracepoint:syscalls:sys_enter_mmap
+/ comm == str($1) /
+{
+    $len = (uint64)(args->len);
+
+    if ($len >= (uint64)(1024*1024)) {
+        printf("pid=%d uid=%d comm=%s EVENT=mmap addr=0x%lx len=%llu MB prot=0x%lx flags=0x%lx fd=%ld off=0x%lx\n",
+               pid, uid, comm,
+               args->addr, $len / (1024ULL * 1024ULL),
+               args->prot, args->flags,
+               args->fd, args->off);
+    } else if ($len >= (uint64)(1024)) {
+        printf("pid=%d uid=%d comm=%s EVENT=mmap addr=0x%lx len=%llu KB prot=0x%lx flags=0x%lx fd=%ld off=0x%lx\n",
+               pid, uid, comm,
+               args->addr, $len / (uint64)1024,
+               args->prot, args->flags,
+               args->fd, args->off);
+    } else {
+        printf("pid=%d uid=%d comm=%s EVENT=mmap addr=0x%lx len=%llu B prot=0x%lx flags=0x%lx fd=%ld off=0x%lx\n",
+               pid, uid, comm,
+               args->addr, $len,
+               args->prot, args->flags,
+               args->fd, args->off);
+    }
+}
